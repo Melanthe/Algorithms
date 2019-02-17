@@ -2,4 +2,6 @@ Debug/
 .vs/
 x64/
 *.sln
-*.vcxproj(.filters|.user)?
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
