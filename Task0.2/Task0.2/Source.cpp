@@ -1,0 +1,206 @@
+#include <iostream>
+#include <fstream> 
+
+void checkFile(std::ifstream &fin)
+{
+	if (!fin.is_open()) throw "File Input.txt can't be opened!";
+	fin.seekg(0, std::ios::end);
+	int pos = fin.tellg();
+	if (pos == 0) throw "File is empty!";
+	fin.seekg(0, std::ios::beg);
+}
+
+struct Node
+{
+	long key;
+	Node *father;
+	Node *left;
+	Node *right;
+
+	Node() : Node(0, nullptr, nullptr, nullptr) {}
+	Node(long key, Node * father, Node *left, Node *right) 
+		: key(key), father(father), left(left), right(right) {}
+};
+
+class BinarySearchTree
+{
+	Node *root;
+
+	void addNode(long key, Node *current)
+	{
+		if (key != current->key)
+		{
+			if (key > current->key)
+			{
+				if (current->right == nullptr)
+				{
+					current->right = new Node(key, current, nullptr, nullptr);
+				}
+				else
+				{
+					addNode(key, current->right);
+				}
+			}
+			else
+			{
+				if (current->left == nullptr)
+				{
+					current->left = new Node(key, current, nullptr, nullptr);
+				}
+				else
+				{
+					addNode(key, current->left);
+				}
+			}
+		}
+	}
+
+	void straightLeftTraversal(Node *current, std::ofstream &out)
+	{
+		out << current->key << '\n';
+		if (current->left != nullptr)
+		{
+			straightLeftTraversal(current->left, out);
+		}
+		if (current->right != nullptr)
+		{
+			straightLeftTraversal(current->right, out);
+		}
+	}
+
+	void backwardRightTraversal(Node *current)
+	{
+		if (current->left != nullptr)
+		{
+			backwardRightTraversal(current->left);
+		}
+		if (current->right != nullptr)
+		{
+			backwardRightTraversal(current->right);
+		}
+		delete current;
+	}
+
+public:
+
+	BinarySearchTree() : root(new Node()) {}
+	BinarySearchTree(const BinarySearchTree &tree) : root(tree.root) {}
+	~BinarySearchTree()
+	{
+		backwardRightTraversal(root);
+	}
+
+	friend std::ifstream & operator>>(std::ifstream &in, BinarySearchTree &tree)
+	{
+		long key;
+
+		if (in >> key)
+		{
+			delete tree.root;
+			tree.root = new Node(key, nullptr, nullptr, nullptr);
+		}
+		else
+			throw "Can't be readed!";
+
+		while (in >> key)
+		{
+			tree.addNode(key, tree.root);
+		}
+		return in;
+	}
+
+	friend std::ofstream & operator<<(std::ofstream &out, BinarySearchTree &tree)
+	{
+		tree.straightLeftTraversal(tree.root, out);
+		return out;
+	}
+
+	Node * findNode(Node *current, long key)
+	{
+		if (key > current->key)
+		{
+			if (current->right != nullptr)
+			{
+				findNode(current->right, key);
+			}
+			else
+			{
+				return nullptr;
+			}
+		}
+		else if (key < current->key)
+		{
+			if (current->left != nullptr)
+			{
+				findNode(current->left, key);
+			}
+			else
+			{
+				return nullptr;
+			}
+		}
+		else if (key == current->key)
+		{
+			return current;
+		}
+
+	}
+
+	Node * findSmallest(Node *current)
+	{
+		Node *smallestNode = current;
+		while (smallestNode->left != nullptr)
+		{
+			smallestNode = smallestNode->left;
+		}
+		return smallestNode;
+	}
+
+	void rightDelete(long key)
+	{
+		Node *foundNode = nullptr;
+		Node *smallestNode = nullptr;
+
+		foundNode = findNode(root, key);
+		if (foundNode != nullptr && foundNode->right != nullptr && foundNode->left != nullptr)
+		{
+			smallestNode = findSmallest(foundNode->right);
+			foundNode->key = smallestNode->key;
+			smallestNode->father->right = smallestNode->right;
+			delete smallestNode;
+		}
+		else if (foundNode != nullptr && foundNode->right == nullptr && foundNode->left == nullptr)
+		{
+			foundNode->father->right = nullptr;
+			delete foundNode;
+		}
+	}
+};
+
+int main()
+{
+	std::ifstream in("input.txt");
+	std::ofstream out("output.txt");
+
+	try
+	{
+		checkFile(in);
+		long deletedKey;
+
+		BinarySearchTree tree;
+		in >> deletedKey;
+		in >> tree;
+		tree.rightDelete(deletedKey);
+		out << tree;
+
+		out.close();
+		in.close();
+		system("pause");
+		return 0;
+	}
+	catch (char *message)
+	{
+		std::cout << message << std::endl;
+		system("pause");
+	}
+}
