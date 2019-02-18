@@ -68,51 +68,27 @@ class BinarySearchTree
 		}
 	}
 
-	void backwardRightTraversal(Node *current)
+	void deleteTree(Node *current)
 	{
 		if (current->left != nullptr)
 		{
-			backwardRightTraversal(current->left);
+			deleteTree(current->left);
 		}
 		if (current->right != nullptr)
 		{
-			backwardRightTraversal(current->right);
+			deleteTree(current->right);
 		}
 		delete current;
 	}
 
-public:
-
-	BinarySearchTree() : root(new Node()) {}
-	BinarySearchTree(const BinarySearchTree &tree) : root(tree.root) {}
-	~BinarySearchTree()
+	Node * findSmallest(Node *current)
 	{
-		backwardRightTraversal(root);
-	}
-
-	friend std::ifstream & operator>>(std::ifstream &in, BinarySearchTree &tree)
-	{
-		long key;
-
-		if (in >> key)
+		Node *smallestNode = current;
+		while (smallestNode->left != nullptr)
 		{
-			delete tree.root;
-			tree.root = new Node(key, nullptr, nullptr, nullptr);
+			smallestNode = smallestNode->left;
 		}
-		else
-			throw "Can't be readed!";
-
-		while (in >> key)
-		{
-			tree.addNode(key, tree.root);
-		}
-		return in;
-	}
-
-	friend std::ofstream & operator<<(std::ofstream &out, BinarySearchTree &tree)
-	{
-		tree.straightLeftTraversal(tree.root, out);
-		return out;
+		return smallestNode;
 	}
 
 	Node * findNode(Node *current, long key)
@@ -143,17 +119,101 @@ public:
 		{
 			return current;
 		}
-
+		else
+			return nullptr;
 	}
 
-	Node * findSmallest(Node *current)
+	void rightDeleting(Node *deleting)
 	{
-		Node *smallestNode = current;
-		while (smallestNode->left != nullptr)
+		Node *smallestNode = findSmallest(deleting->right);
+		deleting->key = smallestNode->key;
+		if (smallestNode->father == deleting)
 		{
-			smallestNode = smallestNode->left;
+			smallestNode->father->right = smallestNode->right;
 		}
-		return smallestNode;
+		else
+		{
+			if (smallestNode->right != nullptr)
+			{
+				smallestNode->right->father = smallestNode->father;
+			}
+			smallestNode->father->left = smallestNode->right;
+		}
+		delete smallestNode;
+	}
+
+	void deleteRoot(Node *deleting)
+	{
+		if (deleting->right != nullptr)
+		{
+			root = deleting->right;
+		}
+		else if (deleting->left != nullptr)
+		{
+			root = deleting->left;
+		}
+		delete deleting;
+	}
+
+	void deleteWithNoTwoBranches(Node *deleting)
+	{
+		if (deleting->key > deleting->father->key)
+		{
+			if (deleting->right != nullptr)
+			{
+				deleting->father->right = deleting->right;
+			}
+			else
+			{
+				deleting->father->right = deleting->left;
+			}
+		}
+		else
+		{
+			if (deleting->right != nullptr)
+			{
+				deleting->father->left = deleting->right;
+			}
+			else
+			{
+				deleting->father->left = deleting->left;
+			}
+		}
+		delete deleting;
+	}
+
+public:
+
+	BinarySearchTree() : root(new Node()) {}
+	BinarySearchTree(const BinarySearchTree &tree) : root(tree.root) {}
+	~BinarySearchTree()
+	{
+		deleteTree(root);
+	}
+
+	friend std::ifstream & operator>>(std::ifstream &in, BinarySearchTree &tree)
+	{
+		long key = 0;
+
+		if (in >> key)
+		{
+			delete tree.root;
+			tree.root = new Node(key, nullptr, nullptr, nullptr);
+		}
+		else
+			throw "Can't be readed!";
+
+		while (in >> key)
+		{
+			tree.addNode(key, tree.root);
+		}
+		return in;
+	}
+
+	friend std::ofstream & operator<<(std::ofstream &out, BinarySearchTree &tree)
+	{
+		tree.straightLeftTraversal(tree.root, out);
+		return out;
 	}
 
 	void rightDelete(long key)
@@ -162,17 +222,20 @@ public:
 		Node *smallestNode = nullptr;
 
 		foundNode = findNode(root, key);
-		if (foundNode != nullptr && foundNode->right != nullptr && foundNode->left != nullptr)
+		if (foundNode != nullptr)
 		{
-			smallestNode = findSmallest(foundNode->right);
-			foundNode->key = smallestNode->key;
-			smallestNode->father->right = smallestNode->right;
-			delete smallestNode;
-		}
-		else if (foundNode != nullptr && foundNode->right == nullptr && foundNode->left == nullptr)
-		{
-			foundNode->father->right = nullptr;
-			delete foundNode;
+			if (foundNode->right != nullptr && foundNode->left != nullptr)
+			{
+				rightDeleting(foundNode);
+			}
+			else if (foundNode == root)
+			{
+				deleteRoot(foundNode);
+			}
+			else
+			{
+				deleteWithNoTwoBranches(foundNode);
+			}
 		}
 	}
 };
@@ -185,13 +248,13 @@ int main()
 	try
 	{
 		checkFile(in);
-		long deletedKey;
+		long deletedKey = 0;
 
-		BinarySearchTree tree;
+		BinarySearchTree *tree = new BinarySearchTree();
 		in >> deletedKey;
-		in >> tree;
-		tree.rightDelete(deletedKey);
-		out << tree;
+		in >> *tree;
+		tree->rightDelete(deletedKey);
+		out << *tree;
 
 		out.close();
 		in.close();
