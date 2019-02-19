@@ -93,11 +93,13 @@ class BinarySearchTree
 
 	Node * findNode(Node *current, long key)
 	{
+		Node *result = nullptr;
+
 		if (key > current->key)
 		{
 			if (current->right != nullptr)
 			{
-				findNode(current->right, key);
+				result = findNode(current->right, key);
 			}
 			else
 			{
@@ -108,7 +110,7 @@ class BinarySearchTree
 		{
 			if (current->left != nullptr)
 			{
-				findNode(current->left, key);
+				result = findNode(current->left, key);
 			}
 			else
 			{
@@ -117,10 +119,9 @@ class BinarySearchTree
 		}
 		else if (key == current->key)
 		{
-			return current;
+			result = current;
 		}
-		else
-			return nullptr;
+		return result;
 	}
 
 	void rightDeleting(Node *deleting)
