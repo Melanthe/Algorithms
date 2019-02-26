@@ -8,7 +8,7 @@ void checkFile(std::ifstream &fin)
 {
 	if (!fin.is_open()) throw "File Input.txt can't be opened!";
 	fin.seekg(0, std::ios::end);
-	long pos = fin.tellg();
+	int pos = fin.tellg();
 	if (pos == 0) throw "File is empty!";
 	fin.seekg(0, std::ios::beg);
 }
@@ -16,32 +16,36 @@ void checkFile(std::ifstream &fin)
 struct Node
 {
 	long key;
-	long depth;
-	long high;
-	long rootWays;
-	long noRootWays;
-	long leaves;
+	int depth;
+	int high;
+	int numOfWays;
 	Node *father;
 	Node *left;
 	Node *right;
 
-	Node() : Node(0, 0, 0, 0, 0, 0, nullptr, nullptr, nullptr) {}
-	Node(long key, long depth, long high, long rootWays, long noRootWays, long leaves,
+	Node() : Node(0, 0, 0, 0, nullptr, nullptr, nullptr) {}
+	Node(long key, int depth, int high, int ways,
 		Node * father, Node *left, Node *right)
-			: key(key), depth(depth), high(high), rootWays(rootWays), noRootWays(noRootWays),
-		leaves(leaves), father(father), left(left), right(right) {}
+			: key(key), depth(depth), high(high),
+		numOfWays(ways), father(father), left(left), right(right) {}
 };
 
 class BinarySearchTree
 {
 	Node *root;
+	int longestWay;
+	int maxNumOfWays;
+	std::map<int,std::vector<Node*>> levels;
 
 	void addNode(long key)
 	{
+		int depth = 0;
+
 		Node *parent = nullptr;
 		Node *current = root;
 		while (current)
 		{
+			depth++;
 			parent = current;
 			if (key < current->key)
 			{
@@ -58,11 +62,11 @@ class BinarySearchTree
 		}
 		if (key < parent->key)
 		{
-			parent->left = new Node(key, 0, 0, 0, 0, 0, parent, nullptr, nullptr);
+			parent->left = new Node(key, depth, 0, 0, parent, nullptr, nullptr);
 		}
 		else if (key > parent->key)
 		{
-			parent->right = new Node(key, 0, 0, 0, 0, 0, parent, nullptr, nullptr);
+			parent->right = new Node(key, depth, 0, 0, parent, nullptr, nullptr);
 		}
 	}
 
@@ -90,6 +94,64 @@ class BinarySearchTree
 			deleteTree(current->right);
 		}
 		delete current;
+	}
+
+	Node * findNode(Node *current, long key)
+	{
+		while (current != nullptr || current->key != key)
+		{
+			Node *result = nullptr;
+
+			if (key > current->key)
+			{
+					current = current->right;
+			}
+			else if (key < current->key)
+			{
+					current = current->left;
+			}
+		}
+		return current;
+	}
+
+	void fillLeavesList(Node *current)
+	{
+		int right = 0, left = 0;
+
+		if (current->left != nullptr)
+		{
+			fillLeavesList(current->left);
+		}
+		if (current->right != nullptr)
+		{
+			fillLeavesList(current->right);
+		}
+
+		if (!current->right && !current->left)
+		{
+			levels[current->depth].push_back(current);
+			current->high = 0;
+		}
+		else if (current->right && current->left)
+		{
+			right = current->right->high;
+			left = current->left->high;
+			current->high = std::max(right, left) + 1;
+
+			if ((right + left + 2) > longestWay)
+			{
+				longestWay = (right + left + 2);
+			}
+		}
+		else
+		{
+			current->high = (current->right ? (current->right->high + 1) : (current->left->high + 1));
+
+			if (current->high > longestWay)
+			{
+				longestWay = current->high;
+			}
+		}
 	}
 
 	Node * findSmallest(Node *current)
@@ -175,10 +237,35 @@ class BinarySearchTree
 		delete deleting;
 	}
 
+	void makeWay(Node *leaf, Node *kink, std::vector<Node *> &way)
+	{
+		Node *current = leaf;
+
+		while (current != kink)
+		{
+			way.push_back(current);
+			current = current->father;
+		}
+	}
+
+	void addWays(std::vector<Node *> &way, int num)
+	{
+		if (num == 0)
+		{
+			num = 1;
+		}
+		int size = way.size();
+		for (int i = 0; i < size; ++i)
+		{
+			way[i]->numOfWays += num;
+		}
+	}
+
 public:
 
-	BinarySearchTree() : root(new Node()){}
-	BinarySearchTree(const BinarySearchTree &tree) : root(tree.root) {}
+	BinarySearchTree() : root(new Node()), longestWay(0), maxNumOfWays(0) {}
+	BinarySearchTree(const BinarySearchTree &tree) 
+		: root(tree.root), longestWay(tree.longestWay), maxNumOfWays(tree.maxNumOfWays) {}
 	~BinarySearchTree()
 	{
 		deleteTree(root);
@@ -186,168 +273,98 @@ public:
 
 	void alghorithm()
 	{
-		long maxWay = 0;
-		long maxNum = 0;
-		long size = 0;
-		std::vector<Node *> deleting;
-
-		findMaxLength(root, maxWay);
-		findNumOfWays(root, maxWay, maxNum, deleting);
-		size = deleting.size();
-		for (long i = 0; i < size; ++i)
-		{
-			if (deleting[i]->rootWays)
-			{
-				removeFound(deleting[i], maxNum);
-			}
-		}
+		std::vector<Node *> kinks;
+		findKinks(root, kinks);
+		deleteTops(kinks);
 	}
 
-	void findMaxLength(Node *current, long &max)
+	void findKinks(Node *current, std::vector<Node *> &kinks)
 	{
+		int right = current->right ? (current->right->high + 1) : 0;
+		int left = current->left ? (current->left->high + 1) : 0;
+		int tmp = right + left;
+
+		if (tmp == longestWay)
+		{
+			handleKink(current);
+			kinks.push_back(current);
+		}
 		if (current->left != nullptr)
 		{
-			findMaxLength(current->left, max);
+			findKinks(current->left, kinks);
 		}
 		if (current->right != nullptr)
 		{
-			findMaxLength(current->right, max);
+			findKinks(current->right, kinks);
 		}
-		setHighLeavesMax(current, max);
 	}
 
-	void setHighLeavesMax(Node *current, long &max)
+	void handleKink(Node *kink)
 	{
-		long right = 0;
-		long left = 0;
+		int right = kink->right ? (kink->right->high + 1) : 0;
+		int left = kink->left ? (kink->left->high + 1) : 0;
+		int rightLow = kink->depth + right;
+		int leftLow = kink->depth + left;
+		int size = 0;
+		Node * tmpTop = nullptr;
+		std::vector<Node *> tmpWay;
+		std::vector<Node *> rightLeaves;
+		std::vector<Node *> leftLeaves;
 
-		if (!current->right && !current->left)
+		size = levels[leftLow].size();
+		for (int i = 0; i < size; ++i)
 		{
-			current->high = 0;
-			current->leaves = 1;
+			tmpTop = levels[leftLow][i];
+			if ((kink->key <= root->key) && (tmpTop->key < root->key && tmpTop->key < kink->key))
+			{
+				leftLeaves.push_back(tmpTop);
+			}
+			else if (tmpTop->key >= root->key && tmpTop->key < kink->key)
+			{
+				leftLeaves.push_back(tmpTop);
+			}
 		}
-		else if (current->right && current->left)
+		size = levels[rightLow].size();
+		for (int i = 0; i < size; ++i)
 		{
-			right = current->right->high;
-			left = current->left->high;
-			current->high = std::max(right, left) + 1;
+			tmpTop = levels[rightLow][i];
+			if ((kink->key <= root->key) && (tmpTop->key < root->key && tmpTop->key > kink->key))
+			{
+				rightLeaves.push_back(tmpTop);
+			}
+			else if (tmpTop->key >= root->key && tmpTop->key > kink->key)
+			{
+				rightLeaves.push_back(tmpTop);
+			}
+		}
 
-			if ((right + left + 2) > max)
-			{
-				max = (right + left + 2);
-			}
-			if (right == left)
-			{
-				current->leaves = current->right->leaves + current->left->leaves;
-			}
+		int leftSize = leftLeaves.size();
+		int rightSize = rightLeaves.size();
+		int tmpCount = 0;
+		for (int i = 0; i < leftSize; ++i)
+		{
+			makeWay(leftLeaves[i], kink, tmpWay);
+			addWays(tmpWay, rightSize);
+			if (rightSize == 0)
+				tmpCount += 1;
 			else
-			{
-				current->leaves = (right > left ? current->right->leaves : current->left->leaves);
-			}
+				tmpCount += rightSize;
+			tmpWay.clear();
 		}
+		for (int i = 0; i < rightSize; ++i)
+		{
+			makeWay(rightLeaves[i], kink, tmpWay);
+			addWays(tmpWay, leftSize);
+			if (leftSize == 0)
+				tmpCount += 1;
+			else
+				tmpCount += leftSize;
+			tmpWay.clear();
+		}
+		if (leftSize && rightSize)
+			kink->numOfWays += tmpCount / 2;
 		else
-		{
-
-			if (current->right)
-			{
-				current->high = current->right->high + 1;
-				current->leaves = current->right->leaves;
-			}
-			else
-			{
-				current->high = current->left->high + 1;
-				current->leaves = current->left->leaves;
-			}
-			if (current->high > max)
-			{
-				max = current->high;
-			}
-		}
-	}
-
-	void findNumOfWays(Node *current, long maxWay, long &maxNum, std::vector<Node *> &deleting)
-	{
-		long right = 0;
-		long left = 0;
-
-		if (current->right && current->left)
-		{
-			right = current->right->high;
-			left =  current->left->high;
-			if ((right + left + 2) == maxWay)
-			{
-				current->rootWays = current->right->leaves * current->left->leaves;
-			}
-			if (right == left)
-			{
-				current->right->noRootWays = current->rootWays + (current->right->leaves * (current->noRootWays / current->leaves));
-				current->left->noRootWays = current->rootWays + (current->left->leaves * (current->noRootWays / current->leaves));
-			}
-			else if (right > left)
-			{
-				current->right->noRootWays = current->noRootWays + current->rootWays;
-				current->left->noRootWays = current->rootWays;
-			}
-			else
-			{
-				current->left->noRootWays = current->noRootWays + current->rootWays;
-				current->right->noRootWays = current->rootWays;
-			}
-		}
-		else if (current->right)
-		{
-			right = current->right->high;
-			if ((right + 1) == maxWay)
-			{
-				current->rootWays = current->right->leaves;
-			}
-			current->right->noRootWays = current->noRootWays + current->rootWays;
-		}
-		else if (current->left)
-		{
-			left = left = current->left->high;
-			if ((left + 1) == maxWay)
-			{
-				current->rootWays = current->left->leaves;
-			}
-			current->left->noRootWays = current->noRootWays + current->rootWays;
-		}
-		long tmp = current->rootWays + current->noRootWays;
-		if (tmp > maxNum)
-		{
-			maxNum = tmp;
-			deleting.clear();
-			deleting.push_back(current);
-		}
-		else if (tmp == maxNum)
-		{
-			deleting.push_back(current);
-		}
-
-		if (current->left != nullptr)
-		{
-			findNumOfWays(current->left, maxWay, maxNum, deleting);
-		}
-		if (current->right != nullptr)
-		{
-			findNumOfWays(current->right, maxWay, maxNum, deleting);
-		}
-	}
-
-	void removeFound(Node *current, long &maxNum)
-	{
-		if (current->left != nullptr)
-		{
-			removeFound(current->left, maxNum);
-		}
-		if (current->right != nullptr)
-		{
-			removeFound(current->right, maxNum);
-		}
-		if (current->rootWays + current->noRootWays == maxNum)
-		{
-			rightDelete(current);
-		}
+			kink->numOfWays += tmpCount;
 	}
 
 	void rightDelete(Node *top)
@@ -356,7 +373,7 @@ public:
 
 		if (foundNode != nullptr)
 		{
-			if (foundNode->right && foundNode->left)
+			if (foundNode->right != nullptr && foundNode->left != nullptr)
 			{
 				rightDeleting(foundNode);
 			}
@@ -371,6 +388,48 @@ public:
 		}
 	}
 
+	void deleteTops(std::vector<Node *> &kinks)
+	{
+		int size = kinks.size();
+		std::vector<Node *> maxKinks;
+		
+		for (int i = 0; i < size; ++i)
+		{
+			if (kinks[i]->numOfWays > maxNumOfWays)
+			{
+				maxNumOfWays = kinks[i]->numOfWays;
+			}
+		}
+		for (int i = 0; i < size; ++i)
+		{
+			if (kinks[i]->numOfWays == maxNumOfWays)
+			{
+				maxKinks.push_back(kinks[i]);
+			}
+		}
+		size = maxKinks.size();
+		for (int i = 0; i < size; ++i)
+		{
+			findDeletingTops(maxKinks[i]);
+		}
+	}
+
+	void findDeletingTops(Node *current)
+	{
+		if (current->left != nullptr)
+		{
+			findDeletingTops(current->left);
+		}
+		if (current->right != nullptr)
+		{
+			findDeletingTops(current->right);
+		}
+		if (current->numOfWays == maxNumOfWays)
+		{
+			rightDelete(current);
+		}
+	}
+
 	friend std::ifstream & operator>>(std::ifstream &in, BinarySearchTree &tree)
 	{
 		long key = 0;
@@ -378,7 +437,7 @@ public:
 		if (in >> key)
 		{
 			delete tree.root;
-			tree.root = new Node(key, 0, 0, 0, 0, 0, nullptr, nullptr, nullptr);
+			tree.root = new Node(key, 0, 0, 0, nullptr, nullptr, nullptr);
 		}
 		else
 			throw "Can't be readed!";
@@ -387,6 +446,7 @@ public:
 		{
 			tree.addNode(key);
 		}
+		tree.fillLeavesList(tree.root);
 		return in;
 	}
 
@@ -397,7 +457,7 @@ public:
 	}
 };
 
-long main()
+int main()
 {
 	std::ifstream in("in.txt");
 	std::ofstream out("out.txt");
