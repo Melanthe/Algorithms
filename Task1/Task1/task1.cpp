@@ -8,7 +8,7 @@ void checkFile(std::ifstream &fin)
 {
 	if (!fin.is_open()) throw "File Input.txt can't be opened!";
 	fin.seekg(0, std::ios::end);
-	int pos = fin.tellg();
+	long pos = fin.tellg();
 	if (pos == 0) throw "File is empty!";
 	fin.seekg(0, std::ios::beg);
 }
@@ -16,17 +16,17 @@ void checkFile(std::ifstream &fin)
 struct Node
 {
 	long key;
-	int depth;
-	int high;
-	int rootWays;
-	int noRootWays;
-	int leaves;
+	long depth;
+	long high;
+	long rootWays;
+	long noRootWays;
+	long leaves;
 	Node *father;
 	Node *left;
 	Node *right;
 
 	Node() : Node(0, 0, 0, 0, 0, 0, nullptr, nullptr, nullptr) {}
-	Node(long key, int depth, int high, int rootWays, int noRootWays, int leaves,
+	Node(long key, long depth, long high, long rootWays, long noRootWays, long leaves,
 		Node * father, Node *left, Node *right)
 			: key(key), depth(depth), high(high), rootWays(rootWays), noRootWays(noRootWays),
 		leaves(leaves), father(father), left(left), right(right) {}
@@ -35,37 +35,34 @@ struct Node
 class BinarySearchTree
 {
 	Node *root;
-	int longestWay;
 
-	void addNode(long key, Node *current)
+	void addNode(long key)
 	{
-		int depth = current->depth;
-		depth++;
-
-		if (key != current->key)
+		Node *parent = nullptr;
+		Node *current = root;
+		while (current)
 		{
-			if (key > current->key)
+			parent = current;
+			if (key < current->key)
 			{
-				if (current->right == nullptr)
-				{
-					current->right = new Node(key, depth, 0, 0, 0, 0, current, nullptr, nullptr);
-				}
-				else
-				{
-					addNode(key, current->right);
-				}
+				current = current->left;
+			}
+			else if (key > current->key)
+			{
+				current = current->right;
 			}
 			else
 			{
-				if (current->left == nullptr)
-				{
-					current->left = new Node(key, depth, 0, 0, 0, 0, current, nullptr, nullptr);
-				}
-				else
-				{
-					addNode(key, current->left);
-				}
+				return;
 			}
+		}
+		if (key < parent->key)
+		{
+			parent->left = new Node(key, 0, 0, 0, 0, 0, parent, nullptr, nullptr);
+		}
+		else if (key > parent->key)
+		{
+			parent->right = new Node(key, 0, 0, 0, 0, 0, parent, nullptr, nullptr);
 		}
 	}
 
@@ -180,8 +177,8 @@ class BinarySearchTree
 
 public:
 
-	BinarySearchTree() : root(new Node()), longestWay(0) {}
-	BinarySearchTree(const BinarySearchTree &tree) : root(tree.root), longestWay(tree.longestWay) {}
+	BinarySearchTree() : root(new Node()){}
+	BinarySearchTree(const BinarySearchTree &tree) : root(tree.root) {}
 	~BinarySearchTree()
 	{
 		deleteTree(root);
@@ -189,15 +186,15 @@ public:
 
 	void alghorithm()
 	{
-		int maxWay = 0;
-		int maxNum = 0;
-		int size = 0;
+		long maxWay = 0;
+		long maxNum = 0;
+		long size = 0;
 		std::vector<Node *> deleting;
 
 		findMaxLength(root, maxWay);
 		findNumOfWays(root, maxWay, maxNum, deleting);
 		size = deleting.size();
-		for (int i = 0; i < size; ++i)
+		for (long i = 0; i < size; ++i)
 		{
 			if (deleting[i]->rootWays)
 			{
@@ -206,7 +203,7 @@ public:
 		}
 	}
 
-	void findMaxLength(Node *current, int &max)
+	void findMaxLength(Node *current, long &max)
 	{
 		if (current->left != nullptr)
 		{
@@ -219,10 +216,10 @@ public:
 		setHighLeavesMax(current, max);
 	}
 
-	void setHighLeavesMax(Node *current, int &max)
+	void setHighLeavesMax(Node *current, long &max)
 	{
-		int right = 0;
-		int left = 0;
+		long right = 0;
+		long left = 0;
 
 		if (!current->right && !current->left)
 		{
@@ -268,10 +265,10 @@ public:
 		}
 	}
 
-	void findNumOfWays(Node *current, int maxWay, int &maxNum, std::vector<Node *> &deleting)
+	void findNumOfWays(Node *current, long maxWay, long &maxNum, std::vector<Node *> &deleting)
 	{
-		int right = 0;
-		int left = 0;
+		long right = 0;
+		long left = 0;
 
 		if (current->right && current->left)
 		{
@@ -315,7 +312,7 @@ public:
 			}
 			current->left->noRootWays = current->noRootWays + current->rootWays;
 		}
-		int tmp = current->rootWays + current->noRootWays;
+		long tmp = current->rootWays + current->noRootWays;
 		if (tmp > maxNum)
 		{
 			maxNum = tmp;
@@ -337,7 +334,7 @@ public:
 		}
 	}
 
-	void removeFound(Node *current, int &maxNum)
+	void removeFound(Node *current, long &maxNum)
 	{
 		if (current->left != nullptr)
 		{
@@ -388,7 +385,7 @@ public:
 
 		while (in >> key)
 		{
-			tree.addNode(key, tree.root);
+			tree.addNode(key);
 		}
 		return in;
 	}
@@ -400,7 +397,7 @@ public:
 	}
 };
 
-int main()
+long main()
 {
 	std::ifstream in("in.txt");
 	std::ofstream out("out.txt");
